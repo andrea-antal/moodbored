@@ -20,6 +20,7 @@ const fileInput = $('#file-input');
 const selbar = $('#selbar');
 const dropOverlay = $('#drop-overlay');
 const toastEl = $('#toast');
+const offlineEl = $('#offline');
 
 const FONTS = [
   ['sans', 'Sans'],
@@ -98,6 +99,13 @@ function toast(msg, action) {
   if (action) toastEl.append(h('button', { onclick: () => { action.run(); toastEl.hidden = true; } }, action.label));
   toastEl.hidden = false;
   toastTimer = setTimeout(() => (toastEl.hidden = true), action ? 6000 : 2500);
+}
+
+// ---------- server check ----------
+
+// The server can stop while this tab stays open. Say so before anything else gets added.
+async function checkServer() {
+  if (store && !document.hidden) offlineEl.hidden = await store.alive();
 }
 
 // ---------- saving ----------
@@ -1069,6 +1077,7 @@ document.addEventListener('visibilitychange', async () => {
     save();
     return;
   }
+  checkServer();
   // Back from the other device: pick up what it saved, unless there are local edits.
   if (store?.kind === 'server' && board && everSaved && version === savedVersion && !boardView.hidden && !drag && !resize) {
     const remote = await store.get(board.id).catch(() => null);
@@ -1089,5 +1098,6 @@ window.addEventListener('beforeunload', (e) => {
 window.addEventListener('hashchange', route);
 
 store = await openStore();
+setInterval(checkServer, 3000);
 await document.fonts?.ready;
 route();

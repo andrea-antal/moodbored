@@ -37,6 +37,7 @@ function serverStore() {
   };
   return {
     kind: 'server',
+    alive: () => serverAlive(),
     list: () => fetch('api/boards').then(json),
     get: (id) => fetch(`api/boards/${encodeURIComponent(id)}`).then((r) => (r.status === 404 ? null : json(r))),
     save: (board) =>
@@ -96,6 +97,7 @@ function localStore() {
 
   return {
     kind: 'local',
+    alive: async () => true,
     list: async () => (await tx('boards', 'readonly', (s) => s.getAll())).map(summarize).sort(byRecent),
     get: async (id) => (await tx('boards', 'readonly', (s) => s.get(id))) ?? null,
     save: async (board) => {
@@ -127,13 +129,16 @@ function localStore() {
   };
 }
 
-export async function openStore() {
+// True when a moodbored server answers. Gives up after 1.5 s.
+export async function serverAlive(url = 'api/health') {
   try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 1500);
-    const res = await fetch('api/health', { signal: ctl.signal });
-    clearTimeout(t);
-    if (res.ok && (await res.json()).app === 'moodbored') return serverStore();
-  } catch {}
-  return localStore();
+    const res = await fetch(url, { signal: AbortSignal.timeout(1500) });
+    return res.ok && (await res.json()).app === 'moodbored';
+  } catch {
+    return false;
+  }
+}
+
+export async function openStore() {
+  return (await serverAlive()) ? serverStore() : localStore();
 }

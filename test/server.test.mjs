@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { serverAlive } from '../public/store.js';
 
 const PORT = 4799;
 const base = `http://127.0.0.1:${PORT}`;
@@ -69,4 +70,10 @@ test('static files cannot escape public/', async () => {
 test('unfurl refuses internal targets', async () => {
   const res = await fetch(`${base}/api/unfurl?url=${encodeURIComponent('http://127.0.0.1:' + PORT)}`);
   assert.equal(res.status, 422);
+});
+
+test('serverAlive: yes while the server runs, no when nothing answers', async () => {
+  assert.equal(await serverAlive(`${base}/api/health`), true);
+  assert.equal(await serverAlive(`${base}/api/nope`), false);
+  assert.equal(await serverAlive('http://127.0.0.1:4798/api/health'), false);
 });
